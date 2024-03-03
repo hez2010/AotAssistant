@@ -54,6 +54,8 @@ IObservable<MethodLoadUnloadVerboseTraceData> jitEndStream = source.Clr.Observe<
 
 var jitTimes =
     from start in jitStartStream
+    from end in jitEndStream.Where(e => start.MethodID == e.MethodID && start.ModuleID == e.ModuleID && start.ProcessID == e.ProcessID).Take(1)
+    where (end.MethodFlags & MethodFlags.Dynamic) == 0
     select (MethodID: (ulong)start.MethodID, ModuleID: (ulong)start.ModuleID);
 
 jitTimes.Subscribe((data) => RecordMethodInfo(data.MethodID, data.ModuleID));
@@ -228,12 +230,6 @@ string[] ParseMethodTypeArgs(ReadOnlySpan<char> methodName)
 
 bool FilterTypeAndMethod(ClrMethod methodInfo, ReadOnlySpan<char> typeName, ReadOnlySpan<char> methodName)
 {
-    // filter dynamic stubs
-    if (methodInfo.Type.Name?.StartsWith("(dynamicClass)") ?? true)
-    {
-        return false;
-    }
-
     // filter async helpers
     if (typeName.StartsWith("System.Runtime.CompilerServices")
         || typeName.StartsWith("System.Runtime.CompilerServices.AsyncMethodBuilderCore")
